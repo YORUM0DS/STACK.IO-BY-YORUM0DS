@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Drift Stack</title>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#0e2528">
+<link rel="icon" href="icon-192.png">
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@600;800&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#e9f0ec;--ink:#12302f;--mute:#5b7773;--bl:44%;--accent:#c4492f;--h0:165;--s:55%;
+box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){color-scheme:dark;--bg:#0e2528;--ink:#f1e6c9;--mute:#8fa9a3;--bl:58%;--accent:#ff8a65}}
+:root[data-theme="dark"]{color-scheme:dark;--bg:#0e2528;--ink:#f1e6c9;--mute:#8fa9a3;--bl:58%;--accent:#ff8a65}
+html,body{height:100%;margin:0}
+body{height:100vh;height:100dvh}
+body{background:var(--bg);color:var(--ink);font-family:"Bricolage Grotesque",system-ui,sans-serif;display:flex;flex-direction:column;align-items:center;user-select:none;-webkit-user-select:none;touch-action:manipulation;overflow:hidden}
+header{display:flex;align-items:baseline;justify-content:space-between;width:100%;max-width:420px;box-sizing:border-box;padding:14px 20px 0}
+#score{font-size:56px;font-weight:800;line-height:1}
+#best,#coins{font-size:14px;color:var(--mute);font-weight:600}
+#meta{display:flex;align-items:center;gap:8px}
+button{font:inherit;font-weight:600;color:var(--ink);background:transparent;border:1.5px solid var(--mute);border-radius:10px;padding:7px 11px}
+button:disabled{opacity:.45}
+#shop,#vr{position:fixed;inset:0;background:var(--bg);display:none;flex-direction:column;align-items:center;overflow:auto;padding:calc(env(safe-area-inset-top,0px) + 16px) 20px 28px;box-sizing:border-box;z-index:5}
+#shop>*,#vr>*{width:100%;max-width:420px;box-sizing:border-box}
+.top{display:flex;justify-content:space-between;align-items:center}
+.top b{font-size:26px;font-weight:800}
+.row{display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid rgba(128,128,128,.3)}
+.row b{flex:1}.sw{display:flex;align-items:flex-end}.sw i{width:12px;height:26px}
+h3{margin:22px 0 4px;font-size:20px}
+p{margin:0 0 10px;color:var(--mute);line-height:1.4}
+#buy{background:var(--accent);color:var(--bg);border-color:var(--accent)}
+input,textarea{font:inherit;color:var(--ink);background:transparent;border:1.5px solid var(--mute);border-radius:10px;padding:8px;width:100%;box-sizing:border-box;margin:6px 0}
+#note{color:var(--accent);font-weight:600;min-height:20px;margin-top:8px}
+.vrow{padding:12px 0;border-bottom:1px solid rgba(128,128,128,.3)}
+.vrow>span{display:block;font-weight:600;margin-bottom:6px}
+.seg{display:flex;gap:6px;flex-wrap:wrap}
+.seg button.on{background:var(--accent);color:var(--bg);border-color:var(--accent)}
+.rng{display:flex;align-items:center;gap:10px}
+.rng input{flex:1;width:auto;margin:0;padding:0;border:0}
+.rng b{min-width:34px;text-align:right}
+button:hover:not(:disabled){background:rgba(128,128,128,.22);cursor:pointer}
+.quest button{padding:14px 22px;font-size:18px;border-radius:14px}
+.quest #score{font-size:72px}
+.quest #best,.quest #coins{font-size:18px}
+.quest header,.quest #shop>*,.quest #vr>*{max-width:560px}
+.seg button.on,.seg button.on:hover:not(:disabled){background:var(--accent);color:var(--bg);border-color:var(--accent)}
+@media (min-width:700px){#vr{left:auto;width:460px;box-shadow:-8px 0 24px rgba(0,0,0,.35)}body.vropen{padding-right:460px;box-sizing:border-box}}
+main{flex:1;min-height:300px;width:100%;display:flex;justify-content:center;position:relative}
+canvas{height:100%;max-width:100%;aspect-ratio:360/560}
+#msg{position:absolute;left:0;right:0;top:34%;text-align:center;pointer-events:none;padding:0 24px}
+#msg b{display:block;font-size:30px;font-weight:800}
+#msg span{display:block;margin-top:6px;color:var(--mute);font-size:16px}
+#flash{position:absolute;left:0;right:0;top:22%;text-align:center;font-weight:800;font-size:22px;color:var(--accent);opacity:0;transition:opacity .4s;pointer-events:none}
+</style>
+</head>
+<body>
+<header><div id="score">0</div><div id="meta"><span id="best">Best 0</span><span id="coins">0 coins</span><button id="shopBtn">Shop</button><button id="vrBtn">VR</button></div></header>
+<main>
+<canvas id="c"></canvas>
+<div id="flash">Perfect</div>
+<div id="msg"><b>Drift Stack</b><span>Tap to drop each slab. Line it up to keep it wide.</span></div>
+</main>
+<div id="vr">
+<div class="top"><b>VR and display</b><button id="closeVr">Close</button></div>
+<p style="margin-top:8px">These settings change how the game runs and reads your controller. Your headset’s own refresh rate is set in its system settings.</p>
+<div id="stats"></div>
+<div id="vrBody"></div>
+<button id="vrReset" style="margin-top:16px">Reset to defaults</button>
+</div>
+<div id="shop">
+<div class="top"><b>Shop</b><span id="shopCoins"></span><button id="closeShop">Close</button></div>
+<h3>Themes</h3><p>Earn coins by stacking slabs. A perfect drop earns extra.</p>
+<div id="list"></div>
+<h3>Supporter pack, $2</h3>
+<p>Unlocks every theme, including future ones, and lets you move your save to another device.</p>
+<button id="buy">Pay $2 with Cash App</button>
+<p style="margin-top:12px">Already paid? Enter your unlock code.</p>
+<div style="display:flex;gap:8px"><input id="code" placeholder="Unlock code" autocapitalize="off"><button id="redeem">Unlock</button></div>
+<div id="saveBox"><h3>Save backup</h3><p>Copy this code to keep your progress, or paste a code and tap Restore.</p><textarea id="saveTxt" rows="3"></textarea><div style="display:flex;gap:8px"><button id="exp">Show my code</button><button id="imp">Restore</button></div></div>
+<div id="note"></div>
+</div>
+<script>
+const CASHTAG='';       // your Cash App name without the $ sign
+const CONTACT='';       // where buyers message you, like an email or Instagram name
+const UNLOCK_HASHES=["d1c6e8e742b7ebd7750af2349b9f898df73c7b27615d7c9cd6e5c04031040fdf", "fbf0c7774fc693101a4ab13b090daa2d24e7699101c3dbd53a7fdd79481f1720", "c94703275c4044923af5df496641d99edebf2997f9d6e6fddc270d489d947a3a", "6b29c32b0e0a3147c4ed5503dd0f55f4b91dfc01f22b4570ef8347378b50cf70", "9e52138b1b65149ecc205fb07fac76655457135b7b85a127effd15fa8921b600", "177df557805e146f2a3d38ca4ab56cdda54dade025c8e725926cd3853e9d8e57", "5b629a039bf43d90d7112d08ae37d3dc5c969533468b090e43a24dc9c457c34a", "662364e948d9984fb4c58a05334725583691076d885a5d7dc13a0012f582c00c", "632708b8fe74178f10c8d1bf914532308ae2c8d914b10b2eb20bfd317125e466", "e8f2592b10ae75d1e95f9a4abd67ff7047d85ce858b24f2a2ca82c230bd332bd", "9e149ef0a0bc6c5ba2dc2d992d4f41afb0b339913ff8929af0286ebdb179311f", "e3feff2944bc6f25ac458b5319915dfdfd2513ff1afe7d114d0a8a8ff3250aa3", "68cce56f7a44769f36078662b34a4d235aa357bafcc3a2f7f78c6bc9016fb95a", "04bc83a5086f48f4b26d3779c50229860b2677ebd0b27d6ce5420779d2150c08", "f28ad5fbaed8e4a3a78d0e08d1b024c22a958f9be42b2e05d500fd72e8d56fe8", "4b793d4dbcf18a8208af6c160a9e0f181a6401d4d4447667a1fce8af4b4246d9", "39b78de014a910291c04ea66c9a207cb744a0cfe2c6dfce0a74f1a040b89d844", "0d76352c23936d6191ceefcaf8ef2efe56832805eeec983073370fa9644bf5ed", "136f1629d3993bcfe880f14b56e458caa03aaf2d0dc4729f3d79331108b6fe81", "ff7a8f77519ae9cc761ee66b0c0430d8499cfb8bb6341fa8a5f4277afe699ff4", "93d0e29c36c1583405b09d91d5e2e716de5d169621b08fa7eccffe67fda2f772", "429876a3aaef8c5b682f7962f1670c7038245f4f1509b7801e5c510cfccbacfe", "8c458016d94d5db625b533df6ea4f01b88a9e7b0dd481756709915b5b63cc7c5", "5c8895de54271f81b9ea9ea175a581aabe4e8b55b19bd5f3b9a84424720de81b", "501a945f991b1475561ba799eec3b61b1069c93dff7ccb13660e4e0dd48445cb", "df2af5e3b5e5c7d953282fe41f681f19885803d97fe88bd09d99d18b774793c6", "5b419a4b0e37164906531ec28850581d7a338d6e31851ecaeb1ead83c5169240", "1ec87f95b0c576d6c4f3a29d04bd7b7299335791b9b2e29ae174f7e0601af22b", "9de2e648348f119b441dc6123d3fa60f2068a23fc24d6983894b9a9eecf14186", "66d9576dac0454cfaac1c97f0a16310851261e4e03dd23401bdca3544848d469", "976ee345a49f76e677d269dcdc1f82d0ca13ec51b751c539f344c31c8d39dfcb", "b2dcfa2e26c386e28091314e11f686d1858d31ba336c5a32e643ac75bd2aa2a0", "b2f4bb8dc8665c39577a2461ee44dfa654cb3d8c1561d52301534ceb3f65ff0b", "2923d9e28ac6742ff965a2900e8e89e1dfbce35f42314d6ecbb88a3bd0acd494", "58179a206fa57c3895b04a9721008ecfba6017bcfbbaf0251e4425623a85541f", "820bce60a7765e8abe1cf47c613e800ddd13aae01e857a14d17d34451c9c980f", "702799032eeabf7c6ceb69dab2f955e5e3a973ab0a5b0ca2f9ba13ffebedd904", "fa0cf0d1c55738342f20807d5be0f46cfccbde09fcc3880366d9d5fb5fe7f731", "496d40494ce64c74623207cf3b255b8e8b21d38bfd3cccff0da2e002d4619131", "bca442f2fec79257081697adf75fcbfff4ce588277ab35adba57cfaa8eb221d6", "8cea21b2ccb3561ccdbf283f55719778b0b6516150fd346dac8ee64ef02745e4", "676a2236acb4a29921ae1a3ac4ad1f014b3ad5421831f82926dcaf2495110384", "b663c4b2c71c44c1211d6d0a8a379f3f5a410666617ae433b6cce6667a657895", "b9396af44568af3eff246d83e053cdec270c246fe29c488168c737e9990d3494", "d8d8e748d558cfd88e06fbf7ff7a89c12ccf97cc49b5c1504da4f142658d9a83", "56795803ba93b1cf328963a8e7aa7e27749eeef79749b3ecd4c7ff39a12f6353", "e7e648404a34e1eef562addeb3d0d34a29d68893190ec6a6bc6f45ef779426f8", "5ffc7e1a54a6fa564f3223162d46169db58a7a47089392e608af21d6e24b24b4", "94aada9a7b679230f51d5b1ac7cb96475bb00de0d8f8d5a9a3d3c46a6b00c307", "b4f3028d4e67fe38daa8757dd9475587bfcd36edf884bb2025dfb2f57af5fece"];  // 50 hashed codes, the real codes are in your private list
+const cv=document.getElementById('c'),ctx=cv.getContext('2d');
+const W=360,H=560,BH=28,BASE=H-70;
+const $=id=>document.getElementById(id);
+let stack,cur,dir,score,best=0,state='ready',camY=0,debris,last=0,flashT;
+const THEMES=[
+{id:'tide',n:'Tide',p:0},
+{id:'ember',n:'Ember',p:80,bg:'#2a1210',ink:'#ffe3c4',mute:'#b88a78',ac:'#ffb347',h:8,s:75,l:56},
+{id:'orchid',n:'Orchid',p:80,bg:'#1d1030',ink:'#f1e1ff',mute:'#a58fc4',ac:'#ff7ad9',h:280,s:60,l:62},
+{id:'forest',n:'Forest',p:120,bg:'#0f1f14',ink:'#e6f5d8',mute:'#7fa088',ac:'#c8e65a',h:100,s:45,l:55},
+{id:'sunset',n:'Sunset',p:160,bg:'#2b1233',ink:'#ffe9d6',mute:'#b88fb5',ac:'#ffb86b',h:330,s:85,l:60},
+{id:'paper',n:'Paper',p:160,bg:'#f4f0e6',ink:'#222222',mute:'#7a756a',ac:'#d1331f',h:30,s:8,l:30},
+{id:'neon',n:'Neon',p:240,bg:'#06060f',ink:'#e8fff8',mute:'#6f8f9a',ac:'#00ffd0',h:150,s:100,l:55}];
+let S={best:0,coins:0,owned:['tide'],theme:'tide',pro:false};
+try{Object.assign(S,JSON.parse(localStorage.getItem('drift-save')||'{}'));if(!S.best)S.best=+localStorage.getItem('drift-best')||0}catch(e){}
+best=S.best;
+function save(){try{localStorage.setItem('drift-save',JSON.stringify(S))}catch(e){}}
+function updHud(){$('coins').textContent=S.coins+' coins';$('shopCoins').textContent=S.coins+' coins'}
+function applyTheme(){
+  const t=THEMES.find(x=>x.id===S.theme)||THEMES[0],st=document.documentElement.style;
+  ['--bg','--ink','--mute','--accent','--bl','--h0','--s'].forEach(k=>st.removeProperty(k));
+  if(t.bg){st.setProperty('--bg',t.bg);st.setProperty('--ink',t.ink);st.setProperty('--mute',t.mute);st.setProperty('--accent',t.ac);st.setProperty('--bl',t.l+'%');st.setProperty('--h0',t.h);st.setProperty('--s',t.s+'%');document.documentElement.style.colorScheme=t.id==='paper'?'light':'dark'}
+  else document.documentElement.style.colorScheme='';
+}
+function note(m){$('note').textContent=m}
+function renderShop(){
+  const L=$('list');L.innerHTML='';updHud();
+  THEMES.forEach(t=>{
+    const own=S.pro||S.owned.includes(t.id),on=S.theme===t.id,h=t.h??165,s=t.s??55,l=t.l??58;
+    const r=document.createElement('div');r.className='row';
+    r.innerHTML='<div class="sw">'+[0,1,2,3].map(i=>'<i style="height:'+(14+i*4)+'px;background:hsl('+((i*13+h)%360)+','+s+'%,'+l+'%)"></i>').join('')+'</div><b>'+t.n+'</b>';
+    const b=document.createElement('button');
+    b.textContent=on?'In use':own?'Use':t.p+' coins';
+    b.disabled=on||(!own&&S.coins<t.p);
+    b.onclick=()=>{if(!own){S.coins-=t.p;S.owned.push(t.id)}S.theme=t.id;save();applyTheme();updHud();renderShop()};
+    r.appendChild(b);L.appendChild(r);
+  });
+  $('saveBox').style.display=S.pro?'block':'none';
+  $('buy').style.display=S.pro?'none':'inline-block';
+}
+$('shopBtn').onclick=()=>{note('');renderShop();$('shop').style.display='flex'};
+$('closeShop').onclick=()=>{$('shop').style.display='none'};
+$('buy').onclick=()=>{
+  if(!CASHTAG){note('Payments are not set up yet.');return}
+  if(!S.payId){S.payId='DS-'+Math.random().toString(36).slice(2,7).toUpperCase();save()}
+  note('Put '+S.payId+' in the Cash App note. After you pay, message '+(CONTACT||'the developer')+' with that ID and you will get an unlock code to enter below.');
+  window.open('https://cash.app/$'+CASHTAG+'/2','_blank');
+};
+async function sha(t){const b=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(t));return [...new Uint8Array(b)].map(x=>x.toString(16).padStart(2,'0')).join('')}
+$('redeem').onclick=async()=>{
+  const c=$('code').value.toUpperCase().replace(/[\s-]/g,'');
+  let h='';try{h=await sha('drift:'+c)}catch(e){}
+  if(c&&UNLOCK_HASHES.includes(h)){S.pro=true;save();renderShop();note('Supporter pack unlocked. Thank you!')}else note('That code does not match.');
+};
+$('exp').onclick=()=>{$('saveTxt').value=btoa(JSON.stringify(S));note('Copy the code above and keep it safe.')};
+$('imp').onclick=()=>{
+  try{const o=JSON.parse(atob($('saveTxt').value.trim()));
+    if(typeof o.best!=='number'||typeof o.coins!=='number'||!Array.isArray(o.owned))throw 0;
+    S={best:o.best,coins:o.coins,owned:o.owned,theme:o.theme||'tide',pro:true,vr:S.vr};best=S.best;
+    save();applyTheme();renderShop();$('best').textContent='Best '+best;note('Progress restored.');
+  }catch(e){note('That code is not valid.')}
+};
+applyTheme();updHud();
+const VD={fps:0,swap:1,sens:5,follow:6,zoom:1,rows:7};
+S.vr=Object.assign({},VD,S.vr);
+let hz=60,acc=0,fc=0,rend=0,padDown=false,nextT=0,lastDropT=0,padMax=0;
+const QUEST=/OculusBrowser|Quest/i.test(navigator.userAgent);
+if(QUEST)document.documentElement.classList.add('quest');
+const menuOpen=()=>$('shop').style.display==='flex'||$('vr').style.display==='flex';
+function pollPad(){
+  const gps=navigator.getGamepads?navigator.getGamepads():[];let on=false,m=0;const thr=(11-S.vr.sens)/11;
+  for(const g of gps){if(!g)continue;for(const b of g.buttons.slice(0,2)){const v=b.value||(b.pressed?1:0);if(v>m)m=v;if(v>=thr)on=true}}
+  padMax=m;
+  if(on&&!padDown&&!menuOpen())drop();
+  padDown=on;
+}
+function demo(){
+  if(state!=='ready')return;
+  stack=[{x:80,w:200}];let x=80,w=200;
+  for(let i=0;i<11;i++){w=Math.max(120,w-8);x=Math.max(0,Math.min(W-w,x+(i%2?14:-14)));stack.push({x,w})}
+  debris=[];camY=0;state='demo';$('msg').style.display='none';
+}
+function renderVR(){
+  const B=$('vrBody');B.innerHTML='';
+  if(QUEST){const n=document.createElement('p');n.textContent='Meta Quest detected. Point at the game and pull the trigger to drop a slab.';B.appendChild(n)}
+  const add=(label,ctl)=>{const d=document.createElement('div');d.className='vrow';const l=document.createElement('span');l.textContent=label;d.append(l,ctl);B.appendChild(d)};
+  const seg=(key,vals,names)=>{const w=document.createElement('div');w.className='seg';vals.forEach((v,i)=>{const b=document.createElement('button');b.textContent=names[i];b.className=S.vr[key]===v?'on':'';b.onclick=()=>{S.vr[key]=v;save();renderVR()};w.appendChild(b)});return w};
+  const rng=(key,min,max,step)=>{const w=document.createElement('div');w.className='rng';const r=document.createElement('input'),o=document.createElement('b');r.type='range';Object.assign(r,{min,max,step,value:S.vr[key]});o.textContent=S.vr[key];r.oninput=()=>{S.vr[key]=+r.value;o.textContent=r.value;save()};w.append(r,o);return w};
+  const rp=document.createElement('button');rp.textContent='Replay camera move';rp.onclick=()=>{if(stack)camY=0};add('Camera preview',rp);
+  add('Target frame rate (Hz)',seg('fps',[0,60,72,90,120],['Auto','60','72','90','120']));
+  add('Swap interval (show every Nth refresh)',seg('swap',[1,2,3],['1','2','3']));
+  add('Trigger sensitivity (higher means a lighter press)',rng('sens',1,10,1));
+  add('Camera follow speed',rng('follow',2,12,1));
+  add('Camera zoom',rng('zoom',0.8,1.15,0.05));
+  add('Camera height (rows kept in view)',rng('rows',4,10,1));
+}
+$('vrBtn').onclick=()=>{demo();renderVR();$('vr').style.display='flex';document.body.classList.add('vropen')};
+$('closeVr').onclick=()=>{$('vr').style.display='none';document.body.classList.remove('vropen');if(state==='demo'){state='ready';stack=null;camY=0;$('msg').style.display='block'}};
+$('vrReset').onclick=()=>{S.vr=Object.assign({},VD);save();renderVR()};
+setInterval(()=>{
+  if($('vr').style.display!=='flex'){rend=0;return}
+  const n=[...(navigator.getGamepads?navigator.getGamepads():[])].filter(Boolean).length;
+  $('stats').innerHTML='<p>Display refresh: about '+Math.round(hz)+' Hz. Game: about '+rend*2+' frames per second. Controllers found: '+n+'.</p><p>Trigger press now: '+Math.round(padMax*100)+'%. Counts as a drop at '+Math.round((11-S.vr.sens)/11*100)+'%.</p>';rend=0;
+},500);
+$('best').textContent='Best '+best;
+
+function size(){const d=window.devicePixelRatio||1,r=cv.getBoundingClientRect();const w=Math.max(1,Math.round(r.width*d)),h=Math.max(1,Math.round(r.height*d));if(cv.width!==w||cv.height!==h){cv.width=w;cv.height=h;}}
+addEventListener('resize',size);
+
+function reset(){
+  stack=[{x:80,w:200}];debris=[];score=0;camY=0;dir=1;
+  $('score').textContent=0;nextBlock();state='play';$('msg').style.display='none';
+}
+function nextBlock(){
+  const top=stack[stack.length-1];
+  dir=stack.length%2?1:-1;
+  cur={x:dir>0?-top.w:W,w:top.w};
+}
+function speed(){return Math.min(300,150+score*4)}
+
+function drop(){const nw=performance.now();if(nw-lastDropT<150)return;lastDropT=nw;if(state==='play')player.vy=-420;
+  if(state==='ready'||state==='over'||state==='demo'){ if(state==='over'&&performance.now()-overAt<500)return; reset();return;}
+  const top=stack[stack.length-1];
+  const left=Math.max(cur.x,top.x),right=Math.min(cur.x+cur.w,top.x+top.w),ov=right-left;
+  const i=stack.length;
+  if(ov<=0){debris.push({x:cur.x,w:cur.w,i,vy:0,off:0});end();return;}
+  if(Math.abs(cur.x-top.x)<6){
+    stack.push({x:top.x,w:top.w});flash('Perfect');S.coins+=2;
+  }else{
+    if(cur.x<top.x)debris.push({x:cur.x,w:top.x-cur.x,i,vy:0,off:0});
+    else debris.push({x:right,w:cur.x+cur.w-right,i,vy:0,off:0});
+    stack.push({x:left,w:ov});
+  }
+  score++;S.coins++;save();updHud();$('score').textContent=score;nextBlock();
+}
+let overAt=0;
+function end(){
+  state='over';overAt=performance.now();
+  if(score>best){best=score;$('best').textContent='Best '+best;S.best=best;save();}
+  $('msg').innerHTML='<b>Stacked '+score+'</b><span>Tap to stack again</span>';$('msg').style.display='block';
+}
+function flash(t){const f=$('flash');f.textContent=t;f.style.opacity=1;clearTimeout(flashT);flashT=setTimeout(()=>f.style.opacity=0,500);}
+
+function frame(t){
+  size();
+  pollPad();
+  const raw=(t-last)/1000||0;last=t;
+  if(raw>0&&raw<.1)hz+=(1/raw-hz)*.05;
+  acc+=raw;fc++;
+  const per=S.vr.fps?1000/S.vr.fps:0;
+  let skip=S.vr.swap>1&&fc%S.vr.swap!==0;
+  if(!skip&&per){if(t<nextT-1)skip=true;else{nextT+=per;if(nextT<t)nextT=t+per}}
+  if(skip){requestAnimationFrame(frame);return}
+  const dt=Math.min(.05,acc);acc=0;rend++;
+  if(state==='play'){
+    cur.x+=dir*speed()*dt;
+    if(cur.x<=0){cur.x=0;dir=1}
+    if(cur.x+cur.w>=W){cur.x=W-cur.w;dir=-1}
+  }
+  player.vy+=1800*dt;player.y+=player.vy*dt;if(player.y>0){player.y=0;player.vy=0}
+  const want=Math.max(0,(stack?stack.length-S.vr.rows:0)*BH);
+  camY+=(want-camY)*Math.min(1,dt*S.vr.follow);
+  draw();requestAnimationFrame(frame);
+}
+const player={y:0,vy:0};
+let P={h:165,s:55,l:58,ink:'#fff',bg:'#000'};
+function readP(){const g=n=>getComputedStyle(document.documentElement).getPropertyValue(n).trim();P={h:+g('--h0'),s:parseFloat(g('--s')),l:parseFloat(g('--bl')),ink:g('--ink'),bg:g('--bg')}}
+function col(i,o=1){return 'hsla('+((i*13+P.h)%360)+','+P.s+'%,'+P.l+'%,'+o+')'}
+function drawPlayer(x,y){
+  ctx.fillStyle=P.ink;
+  ctx.beginPath();ctx.roundRect(x-8,y-18,16,16,4);ctx.fill();
+  ctx.beginPath();ctx.arc(x,y-25,8,0,7);ctx.fill();
+  ctx.fillRect(x-7,y-2,5,3);ctx.fillRect(x+2,y-2,5,3);
+  ctx.fillStyle=P.bg;
+  ctx.beginPath();ctx.arc(x-3,y-26,1.8,0,7);ctx.arc(x+3,y-26,1.8,0,7);ctx.fill();
+}
+function draw(){readP();
+  const s=cv.width/W,z=S.vr.zoom;ctx.setTransform(1,0,0,1,0,0);ctx.clearRect(0,0,cv.width,cv.height);ctx.setTransform(s*z,0,0,s*z,(cv.width-W*s*z)/2,cv.height-H*s*z);
+  if(!stack)return;
+  const Y=i=>BASE-i*BH+camY;
+  stack.forEach((b,i)=>{ctx.fillStyle=col(i);ctx.fillRect(b.x,Y(i),b.w,BH-2)});
+  if(state==='play'){ctx.fillStyle=col(stack.length);ctx.fillRect(cur.x,Y(stack.length),cur.w,BH-2);drawPlayer(cur.x+cur.w/2,Y(stack.length)+player.y)}
+  debris=debris.filter(d=>d.off<700);
+  debris.forEach(d=>{d.vy+=18;d.off+=d.vy*.06;ctx.fillStyle=col(d.i,.8);ctx.fillRect(d.x,Y(d.i)+d.off,d.w,BH-2)});
+}
+addEventListener('pointerdown',e=>{if(e.target.closest('button,input,textarea,#shop,#vr'))return;e.preventDefault();drop()});
+addEventListener('keydown',e=>{if(e.code==='Space'&&!menuOpen()){e.preventDefault();drop()}});
+size();requestAnimationFrame(frame);
+if("serviceWorker" in navigator)addEventListener("load",()=>navigator.serviceWorker.register("sw.js").catch(()=>{}));
+</script>
+</body>
+</html>
