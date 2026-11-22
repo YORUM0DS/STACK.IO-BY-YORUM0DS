@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Drift Stack</title>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#0e2528">
+<link rel="icon" href="icon-192.png">
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@600;800&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#e9f0ec;--ink:#12302f;--mute:#5b7773;--bl:44%;--accent:#c4492f;
+box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){color-scheme:dark;--bg:#0e2528;--ink:#f1e6c9;--mute:#8fa9a3;--bl:58%;--accent:#ff8a65}}
+:root[data-theme="dark"]{color-scheme:dark;--bg:#0e2528;--ink:#f1e6c9;--mute:#8fa9a3;--bl:58%;--accent:#ff8a65}
+html,body{height:100%;margin:0}
+body{height:100vh;height:100dvh}
+body{background:var(--bg);color:var(--ink);font-family:"Bricolage Grotesque",system-ui,sans-serif;display:flex;flex-direction:column;align-items:center;user-select:none;-webkit-user-select:none;touch-action:manipulation;overflow:hidden}
+header{display:flex;align-items:baseline;justify-content:space-between;width:100%;max-width:420px;box-sizing:border-box;padding:14px 20px 0}
+#score{font-size:56px;font-weight:800;line-height:1}
+#best{font-size:15px;color:var(--mute);font-weight:600}
+main{flex:1;min-height:300px;width:100%;display:flex;justify-content:center;position:relative}
+canvas{height:100%;max-width:100%;aspect-ratio:360/560}
+#msg{position:absolute;left:0;right:0;top:34%;text-align:center;pointer-events:none;padding:0 24px}
+#msg b{display:block;font-size:30px;font-weight:800}
+#msg span{display:block;margin-top:6px;color:var(--mute);font-size:16px}
+#flash{position:absolute;left:0;right:0;top:22%;text-align:center;font-weight:800;font-size:22px;color:var(--accent);opacity:0;transition:opacity .4s;pointer-events:none}
+</style>
+</head>
+<body>
+<header><div id="score">0</div><div id="best">Best 0</div></header>
+<main>
+<canvas id="c"></canvas>
+<div id="flash">Perfect</div>
+<div id="msg"><b>Drift Stack</b><span>Tap to drop each slab. Line it up to keep it wide.</span></div>
+</main>
+<script>
+const cv=document.getElementById('c'),ctx=cv.getContext('2d');
+const W=360,H=560,BH=28,BASE=H-70;
+const $=id=>document.getElementById(id);
+let stack,cur,dir,score,best=0,state='ready',camY=0,debris,last=0,flashT;
+try{best=+localStorage.getItem('drift-best')||0}catch(e){}
+$('best').textContent='Best '+best;
+
+function size(){const d=window.devicePixelRatio||1,r=cv.getBoundingClientRect();const w=Math.max(1,Math.round(r.width*d)),h=Math.max(1,Math.round(r.height*d));if(cv.width!==w||cv.height!==h){cv.width=w;cv.height=h;}}
+addEventListener('resize',size);
+
+function reset(){
+  stack=[{x:80,w:200}];debris=[];score=0;camY=0;dir=1;
+  $('score').textContent=0;nextBlock();state='play';$('msg').style.display='none';
+}
+function nextBlock(){
+  const top=stack[stack.length-1];
+  dir=stack.length%2?1:-1;
+  cur={x:dir>0?-top.w:W,w:top.w};
+}
+function speed(){return Math.min(300,150+score*4)}
+
+function drop(){
+  if(state==='ready'||state==='over'){ if(state==='over'&&performance.now()-overAt<500)return; reset();return;}
+  const top=stack[stack.length-1];
+  const left=Math.max(cur.x,top.x),right=Math.min(cur.x+cur.w,top.x+top.w),ov=right-left;
+  const i=stack.length;
+  if(ov<=0){debris.push({x:cur.x,w:cur.w,i,vy:0,off:0});end();return;}
+  if(Math.abs(cur.x-top.x)<6){
+    stack.push({x:top.x,w:top.w});flash('Perfect');
+  }else{
+    if(cur.x<top.x)debris.push({x:cur.x,w:top.x-cur.x,i,vy:0,off:0});
+    else debris.push({x:right,w:cur.x+cur.w-right,i,vy:0,off:0});
+    stack.push({x:left,w:ov});
+  }
+  score++;$('score').textContent=score;nextBlock();
+}
+let overAt=0;
+function end(){
+  state='over';overAt=performance.now();
+  if(score>best){best=score;$('best').textContent='Best '+best;try{localStorage.setItem('drift-best',best)}catch(e){}}
+  $('msg').innerHTML='<b>Stacked '+score+'</b><span>Tap to stack again</span>';$('msg').style.display='block';
+}
+function flash(t){const f=$('flash');f.textContent=t;f.style.opacity=1;clearTimeout(flashT);flashT=setTimeout(()=>f.style.opacity=0,500);}
+
+function frame(t){
+  size();
+  const dt=Math.min(.05,(t-last)/1000||0);last=t;
+  if(state==='play'){
+    cur.x+=dir*speed()*dt;
+    if(cur.x<=0){cur.x=0;dir=1}
+    if(cur.x+cur.w>=W){cur.x=W-cur.w;dir=-1}
+  }
+  const want=Math.max(0,(stack?stack.length-7:0)*BH);
+  camY+=(want-camY)*Math.min(1,dt*6);
+  draw();requestAnimationFrame(frame);
+}
+function col(i,o=1){return 'hsla('+((i*13+165)%360)+',55%,'+getComputedStyle(document.documentElement).getPropertyValue('--bl').trim()+','+o+')'}
+function draw(){
+  const s=cv.width/W;ctx.setTransform(s,0,0,s,0,0);ctx.clearRect(0,0,W,H);
+  if(!stack)return;
+  const Y=i=>BASE-i*BH+camY;
+  stack.forEach((b,i)=>{ctx.fillStyle=col(i);ctx.fillRect(b.x,Y(i),b.w,BH-2)});
+  if(state==='play'||state==='over'&&false){ctx.fillStyle=col(stack.length);ctx.fillRect(cur.x,Y(stack.length),cur.w,BH-2)}
+  debris=debris.filter(d=>d.off<700);
+  debris.forEach(d=>{d.vy+=18;d.off+=d.vy*.06;ctx.fillStyle=col(d.i,.8);ctx.fillRect(d.x,Y(d.i)+d.off,d.w,BH-2)});
+}
+addEventListener('pointerdown',e=>{e.preventDefault();drop()});
+addEventListener('keydown',e=>{if(e.code==='Space'){e.preventDefault();drop()}});
+size();requestAnimationFrame(frame);
+if("serviceWorker" in navigator)addEventListener("load",()=>navigator.serviceWorker.register("sw.js").catch(()=>{}));
+</script>
+</body>
+</html>
